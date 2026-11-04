@@ -9,8 +9,15 @@ jobs:
       with: {java-version: 17, distribution: temurin}
     - name: Install Android SDK 35
       run: |
-        yes | sdkmanager --licenses
-        sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+        SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+        SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager 2>/dev/null | head -n 1)"
+        if [ -z "$SDKMANAGER" ]; then
+          echo "sdkmanager not found under $SDK_ROOT/cmdline-tools"
+          exit 1
+        fi
+        echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+        yes | "$SDKMANAGER" --licenses || true
+        "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
     - run: |
         unzip -o ShortsRemote_Source_Compatibility.zip
         cp -rf ShortsRemote/* .
