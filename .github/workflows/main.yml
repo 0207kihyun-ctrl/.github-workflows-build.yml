@@ -50,5 +50,8 @@ jobs:
         org.gradle.parallel=false
         EOF
         ./gradle-8.9/bin/gradle --no-daemon --max-workers=2 assembleDebug
+        mkdir -p artifacts
+        find . -type f -name '*.apk' -print -exec cp {} artifacts/ \;
+        test -n "$(find artifacts -type f -name '*.apk' -print -quit)"
     - uses: actions/upload-artifact@v4
-      with: {name: apk, path: "**/*.apk"}
+      with: {name: apk, path: "artifacts/*.apk", if-no-files-found: error}
