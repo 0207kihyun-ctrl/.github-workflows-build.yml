@@ -5,8 +5,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - run: unzip -o *.zip && cp -rf ShortsRemote/* . || true
     - uses: actions/setup-java@v4
       with: {java-version: 17, distribution: temurin}
-    - run: sh gradlew assembleDebug
+    - run: echo "android.useAndroidX=true" > gradle.properties && sh gradlew assembleDebug
     - uses: actions/upload-artifact@v4
       with: {name: apk, path: "**/*.apk"}
