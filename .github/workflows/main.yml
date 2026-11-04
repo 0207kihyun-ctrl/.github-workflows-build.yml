@@ -21,6 +21,7 @@ jobs:
     - run: |
         unzip -o ShortsRemote_Source_Compatibility.zip
         cp -rf ShortsRemote/* .
+        sed -i '/^package /a import androidx.compose.foundation.clickable' app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt
         sed -i 's/compileSdk = 34/compileSdk = 35/' app/build.gradle.kts
         mkdir -p app/src/main/res/values app/src/main/res/drawable
         cat > app/src/main/res/values/themes.xml <<'EOF'
