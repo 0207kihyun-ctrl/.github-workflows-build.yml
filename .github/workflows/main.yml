@@ -21,6 +21,10 @@ jobs:
     - run: |
         unzip -o ShortsRemote_Source_Compatibility.zip
         cp -rf ShortsRemote/* .
+        echo '===== HID PAYLOAD SOURCE ====='
+        cat app/src/main/java/com/shortsremote/app/bluetooth/HidPayloads.kt
+        echo '===== HID MANAGER KEY CALLS ====='
+        grep -nE 'key|Key|report|send|press|release' app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt || true
         sed -i '/^package /a import androidx.compose.foundation.clickable' app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt
         sed -i 's/compileSdk = 34/compileSdk = 35/' app/build.gradle.kts
         mkdir -p app/src/main/res/values app/src/main/res/drawable
