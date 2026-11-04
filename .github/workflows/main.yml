@@ -24,7 +24,12 @@ jobs:
         sed -i 's/compileSdk = 34/compileSdk = 35/' app/build.gradle.kts
         wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
         unzip -q gradle-8.9-bin.zip
-        echo "android.useAndroidX=true" > gradle.properties
-        ./gradle-8.9/bin/gradle assembleDebug
+        cat > gradle.properties <<'EOF'
+        android.useAndroidX=true
+        org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
+        org.gradle.workers.max=2
+        org.gradle.parallel=false
+        EOF
+        ./gradle-8.9/bin/gradle --no-daemon --max-workers=2 assembleDebug
     - uses: actions/upload-artifact@v4
       with: {name: apk, path: "**/*.apk"}
