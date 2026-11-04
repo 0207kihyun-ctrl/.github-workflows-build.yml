@@ -22,6 +22,24 @@ jobs:
         unzip -o ShortsRemote_Source_Compatibility.zip
         cp -rf ShortsRemote/* .
         sed -i 's/compileSdk = 34/compileSdk = 35/' app/build.gradle.kts
+        mkdir -p app/src/main/res/values app/src/main/res/drawable
+        cat > app/src/main/res/values/themes.xml <<'EOF'
+        <resources>
+            <style name="Theme.ShortsRemote" parent="android:style/Theme.Material.Light.NoActionBar">
+                <item name="android:fontFamily">sans</item>
+                <item name="android:colorAccent">#6750A4</item>
+                <item name="android:windowLightStatusBar">true</item>
+            </style>
+        </resources>
+        EOF
+        cat > app/src/main/res/drawable/ic_launcher_foreground.xml <<'EOF'
+        <vector xmlns:android="http://schemas.android.com/apk/res/android"
+            android:width="108dp" android:height="108dp"
+            android:viewportWidth="108" android:viewportHeight="108">
+            <path android:fillColor="#6750A4" android:pathData="M12,12h84v84h-84z"/>
+            <path android:fillColor="#FFFFFF" android:pathData="M42,30 L42,78 L78,54 Z"/>
+        </vector>
+        EOF
         wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
         unzip -q gradle-8.9-bin.zip
         cat > gradle.properties <<'EOF'
