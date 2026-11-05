@@ -273,3 +273,74 @@ ms = ms.replace(old_wheel, "", 1)
 ms = ms.replace(old_click, "", 1)
 manager.write_text(ms, encoding="utf-8")
 print("Unified serialized mouse HID queue patch applied.")
+
+
+# Add a dedicated Shorts / Webtoon mode to the main remote buttons.
+main_file = Path("app/src/main/java/com/shortsremote/app/ui/MainShortsScreen.kt")
+main_source = main_file.read_text(encoding="utf-8")
+
+state_anchor = "    var heartActiveCount by remember { mutableStateOf(0) }"
+if "var webtoonMode by remember" not in main_source:
+    if state_anchor not in main_source:
+        raise SystemExit("Main screen state anchor not found; refusing to patch.")
+    main_source = main_source.replace(
+        state_anchor,
+        state_anchor + "\\n    var webtoonMode by remember { mutableStateOf(false) }",
+        1
+    )
+
+next_action = "                        hidManager.sendNextShort()"
+prev_action = "                        hidManager.sendPrevShort()"
+if next_action not in main_source or prev_action not in main_source:
+    raise SystemExit("Shorts button actions not found; refusing to patch.")
+
+main_source = main_source.replace(
+    next_action,
+    "                        if (webtoonMode) hidManager.sendMouseWheel(2) else hidManager.sendNextShort()",
+    1
+)
+main_source = main_source.replace(
+    prev_action,
+    "                        if (webtoonMode) hidManager.sendMouseWheel(-2) else hidManager.sendPrevShort()",
+    1
+)
+
+main_source = main_source.replace(
+    'text = "다음 쇼츠",',
+    'text = if (webtoonMode) "위로 스크롤" else "다음 쇼츠",',
+    1
+)
+main_source = main_source.replace(
+    'contentDescription = "다음 쇼츠",',
+    'contentDescription = if (webtoonMode) "위로 스크롤" else "다음 쇼츠",',
+    1
+)
+main_source = main_source.replace(
+    'text = "이전 쇼츠",',
+    'text = if (webtoonMode) "아래로 스크롤" else "이전 쇼츠",',
+    1
+)
+main_source = main_source.replace(
+    'contentDescription = "이전 쇼츠",',
+    'contentDescription = if (webtoonMode) "아래로 스크롤" else "이전 쇼츠",',
+    1
+)
+
+footer_old = """                Text(
+                    text = "터치패드 이동 →",
+                    fontSize = 11.sp,
+                    color = AccentBlue,
+                    modifier = Modifier.clickable { onNavigateToTouchpad() }
+                )"""
+footer_new = """                Text(
+                    text = if (webtoonMode) "웹툰 모드 · 눌러서 쇼츠 모드" else "쇼츠 모드 · 눌러서 웹툰 모드",
+                    fontSize = 11.sp,
+                    color = AccentBlue,
+                    modifier = Modifier.clickable { webtoonMode = !webtoonMode }
+                )"""
+if footer_old not in main_source:
+    raise SystemExit("Main screen footer anchor not found; refusing to patch.")
+main_source = main_source.replace(footer_old, footer_new, 1)
+
+main_file.write_text(main_source, encoding="utf-8")
+print("Shorts/Webtoon ▲▼ mode patch applied.")
