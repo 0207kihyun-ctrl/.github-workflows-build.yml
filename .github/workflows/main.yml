@@ -21,6 +21,8 @@ jobs:
     - run: |
         unzip -o ShortsRemote_Source_Compatibility.zip
         cp -rf ShortsRemote/* .
+        echo '--- BLUETOOTH HID SOURCE DIAGNOSTICS ---'
+        grep -R -n -C 8 -E 'sendMouseWheel|sendMouseMove|BluetoothHidDevice|disconnect|connect\(' ShortsRemote/app/src/main/java || true
         python3 patch_mouse_wheel.py
         sed -i '/^package /a import androidx.compose.foundation.clickable' app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt
         sed -i 's/compileSdk = 34/compileSdk = 35/' app/build.gradle.kts
