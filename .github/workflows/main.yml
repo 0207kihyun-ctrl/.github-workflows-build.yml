@@ -21,15 +21,7 @@ jobs:
     - run: |
         unzip -o ShortsRemote_Source_Compatibility.zip
         cp -rf ShortsRemote/* .
-        echo '===== HID PAYLOAD SOURCE ====='
-        cat app/src/main/java/com/shortsremote/app/bluetooth/HidPayloads.kt
-        echo '===== HID MANAGER KEY CALLS ====='
-        grep -nE 'key|Key|report|send|press|release' app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt || true
-        echo '===== UI SOURCE FILES ====='
-        find app/src/main/java -type f -name '*.kt' -print
-        grep -RniE 'sendNextShort|sendPrevShort|sendKeyPress|onClick|onTap|nextShort|prevShort' app/src/main/java || true
-        echo '===== TOUCHPAD SCREEN ====='
-        cat app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt
+        python3 patch_mouse_wheel.py
         sed -i '/^package /a import androidx.compose.foundation.clickable' app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt
         sed -i 's/compileSdk = 34/compileSdk = 35/' app/build.gradle.kts
         mkdir -p app/src/main/res/values app/src/main/res/drawable
@@ -63,4 +55,4 @@ jobs:
         find . -type f -name '*.apk' -print -exec cp {} artifacts/ \;
         test -n "$(find artifacts -type f -name '*.apk' -print -quit)"
     - uses: actions/upload-artifact@v4
-      with: {name: apk, path: "artifacts/*.apk", if-no-files-found: error}
+      with: {name: apk, path: "artifacts/*", if-no-files-found: error}
