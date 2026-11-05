@@ -127,6 +127,11 @@ for forbidden in ("isWristMotionActive", "wristMotionDetector.toggle()", "Icons.
     if forbidden in source:
         raise SystemExit("Old wrist-motion UI remains: " + forbidden)
 
+print("\n--- TouchpadScreen.kt lines 205-230 ---")
+for number, line in enumerate(source.splitlines(), 1):
+    if 205 <= number <= 230:
+        print(f"{number}: {line}")
+
 root.write_text(source, encoding="utf-8")
 
 with zipfile.ZipFile("ShortsRemote_MouseWheel_Source.zip", "w", zipfile.ZIP_DEFLATED) as archive:
