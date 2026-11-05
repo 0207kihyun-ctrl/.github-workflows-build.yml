@@ -140,67 +140,8 @@ with zipfile.ZipFile("ShortsRemote_MouseWheel_Source.zip", "w", zipfile.ZIP_DEFL
             archive.write(path, path.as_posix())
 
 
-# Throttle and coalesce wheel HID reports to avoid flooding Bluetooth.
-manager = Path("app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt")
-ms = manager.read_text(encoding="utf-8")
-old_sender = """    @SuppressLint("MissingPermission")
-    fun sendMouseWheel(wheelDelta: Int) {
-        val proxy = hidDevice ?: return
-        val target = connectedDevice ?: return
-
-        val report = HidPayloads.mouseReport(buttons = HidPayloads.MOUSE_BUTTON_NONE, dx = 0, dy = 0, wheel = wheelDelta)
-        proxy.sendReport(target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), report)
-    }"""
-new_sender = """    private val wheelLock = Any()
-    private var pendingWheelDelta = 0
-    private var wheelFlushRunning = false
-
-    @SuppressLint("MissingPermission")
-    fun sendMouseWheel(wheelDelta: Int) {
-        if (wheelDelta == 0) return
-        val start = synchronized(wheelLock) {
-            pendingWheelDelta = (pendingWheelDelta + wheelDelta).coerceIn(-1024, 1024)
-            if (wheelFlushRunning) false else {
-                wheelFlushRunning = true
-                true
-            }
-        }
-        if (!start) return
-        scope.launch {
-            while (true) {
-                val batch = synchronized(wheelLock) {
-                    if (pendingWheelDelta == 0) {
-                        wheelFlushRunning = false
-                        return@launch
-                    }
-                    val value = pendingWheelDelta.coerceIn(-127, 127)
-                    pendingWheelDelta -= value
-                    value
-                }
-                val proxy = hidDevice
-                val target = connectedDevice
-                if (proxy != null && target != null) {
-                    try {
-                        val report = HidPayloads.mouseReport(
-                            buttons = HidPayloads.MOUSE_BUTTON_NONE, dx = 0, dy = 0, wheel = batch
-                        )
-                        if (!proxy.sendReport(target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), report)) {
-                            Log.w(TAG, "Mouse wheel report rejected")
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Mouse wheel report failed", e)
-                    }
-                }
-                delay(25)
-            }
-        }
-    }"""
-if old_sender in ms:
-    ms = ms.replace(old_sender, new_sender)
-elif "private val wheelLock = Any()" not in ms:
-    raise SystemExit("Wheel sender mismatch; refusing patch.")
-
-# Coalesce touchpad cursor movement too; rapid drag callbacks must not flood HID.
+# Use ONE serialized sender for cursor, wheel, and click reports.
+# Separate mouse send loops can overlap BluetoothHidDevice.sendReport calls.
 old_move = """    @SuppressLint("MissingPermission")
     fun sendMouseMove(dx: Int, dy: Int, buttons: Byte = HidPayloads.MOUSE_BUTTON_NONE) {
         val proxy = hidDevice ?: return
@@ -209,59 +150,115 @@ old_move = """    @SuppressLint("MissingPermission")
         val report = HidPayloads.mouseReport(buttons = buttons, dx = dx, dy = dy, wheel = 0)
         proxy.sendReport(target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), report)
     }"""
-new_move = """    private val mouseMoveLock = Any()
+old_wheel = """    @SuppressLint("MissingPermission")
+    fun sendMouseWheel(wheelDelta: Int) {
+        val proxy = hidDevice ?: return
+        val target = connectedDevice ?: return
+
+        val report = HidPayloads.mouseReport(buttons = HidPayloads.MOUSE_BUTTON_NONE, dx = 0, dy = 0, wheel = wheelDelta)
+        proxy.sendReport(target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), report)
+    }"""
+old_click = """    @SuppressLint("MissingPermission")
+    fun sendMouseClick() {
+        val proxy = hidDevice ?: return
+        val target = connectedDevice ?: return
+
+        scope.launch {
+            val downReport = HidPayloads.mouseReport(buttons = HidPayloads.MOUSE_BUTTON_LEFT, dx = 0, dy = 0)
+            proxy.sendReport(target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), downReport)
+
+            delay(35)
+
+            val upReport = HidPayloads.mouseReport(buttons = HidPayloads.MOUSE_BUTTON_NONE, dx = 0, dy = 0)
+            proxy.sendReport(target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), upReport)
+            _lastLog.value = "마우스 클릭 전송 (Left Click)"
+        }
+    }"""
+new_block = """    private val mouseReportLock = Any()
     private var pendingMouseDx = 0
     private var pendingMouseDy = 0
-    private var mouseMoveFlushRunning = false
+    private var pendingMouseWheel = 0
+    private var pendingMouseClicks = 0
+    private var mouseReportFlushRunning = false
 
-    @SuppressLint("MissingPermission")
-    fun sendMouseMove(dx: Int, dy: Int, buttons: Byte = HidPayloads.MOUSE_BUTTON_NONE) {
-        if (dx == 0 && dy == 0) return
-        val start = synchronized(mouseMoveLock) {
+    private fun enqueueMouseInput(dx: Int = 0, dy: Int = 0, wheel: Int = 0, click: Boolean = false) {
+        val start = synchronized(mouseReportLock) {
             pendingMouseDx = (pendingMouseDx + dx).coerceIn(-2048, 2048)
             pendingMouseDy = (pendingMouseDy + dy).coerceIn(-2048, 2048)
-            if (mouseMoveFlushRunning) false else {
-                mouseMoveFlushRunning = true
+            pendingMouseWheel = (pendingMouseWheel + wheel).coerceIn(-1024, 1024)
+            if (click) pendingMouseClicks = (pendingMouseClicks + 1).coerceAtMost(8)
+            if (mouseReportFlushRunning) false else {
+                mouseReportFlushRunning = true
                 true
             }
         }
         if (!start) return
+
         scope.launch {
             while (true) {
-                val batch = synchronized(mouseMoveLock) {
-                    if (pendingMouseDx == 0 && pendingMouseDy == 0) {
-                        mouseMoveFlushRunning = false
-                        return@launch
+                val batch = synchronized(mouseReportLock) {
+                    if (pendingMouseClicks == 0 && pendingMouseDx == 0 &&
+                        pendingMouseDy == 0 && pendingMouseWheel == 0) {
+                        mouseReportFlushRunning = false
+                        null
+                    } else if (pendingMouseClicks > 0) {
+                        pendingMouseClicks--
+                        Triple(0, 0, 1)
+                    } else {
+                        val x = pendingMouseDx.coerceIn(-127, 127)
+                        val y = pendingMouseDy.coerceIn(-127, 127)
+                        val w = pendingMouseWheel.coerceIn(-127, 127)
+                        pendingMouseDx -= x
+                        pendingMouseDy -= y
+                        pendingMouseWheel -= w
+                        Triple(x, y, w)
                     }
-                    val x = pendingMouseDx.coerceIn(-127, 127)
-                    val y = pendingMouseDy.coerceIn(-127, 127)
-                    pendingMouseDx -= x
-                    pendingMouseDy -= y
-                    Pair(x, y)
-                }
+                } ?: return@launch
+
                 val proxy = hidDevice
                 val target = connectedDevice
                 if (proxy != null && target != null) {
                     try {
-                        val report = HidPayloads.mouseReport(
-                            buttons = buttons, dx = batch.first, dy = batch.second, wheel = 0
-                        )
-                        if (!proxy.sendReport(target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), report)) {
-                            Log.w(TAG, "Mouse move report rejected")
+                        if (batch.third == 1 && batch.first == 0 && batch.second == 0) {
+                            val down = HidPayloads.mouseReport(
+                                buttons = HidPayloads.MOUSE_BUTTON_LEFT, dx = 0, dy = 0, wheel = 0
+                            )
+                            proxy.sendReport(target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), down)
+                            delay(35)
+                            val up = HidPayloads.mouseReport(
+                                buttons = HidPayloads.MOUSE_BUTTON_NONE, dx = 0, dy = 0, wheel = 0
+                            )
+                            proxy.sendReport(target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), up)
+                        } else {
+                            val report = HidPayloads.mouseReport(
+                                buttons = HidPayloads.MOUSE_BUTTON_NONE,
+                                dx = batch.first, dy = batch.second, wheel = batch.third
+                            )
+                            if (!proxy.sendReport(target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), report)) {
+                                Log.w(TAG, "Serialized mouse report rejected")
+                            }
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "Mouse move report failed", e)
+                        Log.e(TAG, "Serialized mouse report failed", e)
                     }
                 }
-                delay(16)
+                delay(20)
             }
         }
+    }
+
+    @SuppressLint("MissingPermission")
+    fun sendMouseMove(dx: Int, dy: Int, buttons: Byte = HidPayloads.MOUSE_BUTTON_NONE) {
+        if (dx != 0 || dy != 0) enqueueMouseInput(dx = dx, dy = dy)
+    }
+
+    @SuppressLint("MissingPermission")
+    fun sendMouseWheel(wheelDelta: Int) {
+        if (wheelDelta != 0) enqueueMouseInput(wheel = wheelDelta)
+    }
+
+    @SuppressLint("MissingPermission")
+    fun sendMouseClick() {
+        enqueueMouseInput(click = true)
+        _lastLog.value = "마우스 클릭 대기열 등록"
     }"""
-if old_move in ms:
-    ms = ms.replace(old_move, new_move)
-elif "private val mouseMoveLock = Any()" not in ms:
-    raise SystemExit("Mouse move sender mismatch; refusing patch.")
-
-manager.write_text(ms, encoding="utf-8")
-
-print("Touchpad / mouse-wheel mode switch and Bluetooth wheel throttle patch applied.")
