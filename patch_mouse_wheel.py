@@ -142,6 +142,8 @@ with zipfile.ZipFile("ShortsRemote_MouseWheel_Source.zip", "w", zipfile.ZIP_DEFL
 
 # Use ONE serialized sender for cursor, wheel, and click reports.
 # Separate mouse send loops can overlap BluetoothHidDevice.sendReport calls.
+manager = Path("app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt")
+ms = manager.read_text(encoding="utf-8")
 old_move = """    @SuppressLint("MissingPermission")
     fun sendMouseMove(dx: Int, dy: Int, buttons: Byte = HidPayloads.MOUSE_BUTTON_NONE) {
         val proxy = hidDevice ?: return
