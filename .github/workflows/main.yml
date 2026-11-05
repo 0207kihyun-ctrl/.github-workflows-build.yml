@@ -23,6 +23,7 @@ jobs:
         cp -rf ShortsRemote/* .
         echo '--- BLUETOOTH HID SOURCE DIAGNOSTICS ---'
         grep -R -n -C 8 -E 'sendMouseWheel|sendMouseMove|BluetoothHidDevice|disconnect|connect\(' ShortsRemote/app/src/main/java || true
+        for f in ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/HidReportDescriptor.kt ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/HidPayloads.kt ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt ShortsRemote/app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt; do echo "--- FULL SOURCE: $f ---"; nl -ba "$f"; done
         python3 patch_mouse_wheel.py
         sed -i '/^package /a import androidx.compose.foundation.clickable' app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt
         sed -i 's/compileSdk = 34/compileSdk = 35/' app/build.gradle.kts
