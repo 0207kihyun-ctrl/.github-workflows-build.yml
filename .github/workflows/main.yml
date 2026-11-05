@@ -29,8 +29,7 @@ jobs:
         for f in ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/HidReportDescriptor.kt ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/HidPayloads.kt ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt ShortsRemote/app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt; do echo "--- FULL SOURCE: $f ---"; nl -ba "$f"; done
 
         for f in app/src/main/java/com/shortsremote/app/MainActivity.kt app/src/main/java/com/shortsremote/app/ui/MainShortsScreen.kt app/src/main/java/com/shortsremote/app/ui/SettingsScreen.kt app/src/main/AndroidManifest.xml; do if [ -f "$f" ]; then echo "--- EXTRA SOURCE: $f ---"; nl -ba "$f"; fi; done
-        python3 patch_mouse_wheel.py
-        sed -i '/^package /a import androidx.compose.foundation.clickable' app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt
+        # Keep all Kotlin source files unchanged; build only the supplied project.
         sed -i 's/compileSdk = 34/compileSdk = 35/' app/build.gradle.kts
         mkdir -p app/src/main/res/values app/src/main/res/drawable
         cat > app/src/main/res/values/themes.xml <<'EOF'
