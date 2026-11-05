@@ -69,7 +69,7 @@ else:
 # Update the title and on-screen instructions for the active mode.
 source = source.replace(
     'text = "터치패드",',
-    'text = if (wheelMode) "마우스 휠" else "터치패드",',
+    'text = "마우스 휠",',
     1
 )
 source = source.replace(
@@ -79,7 +79,7 @@ source = source.replace(
 )
 source = source.replace(
     'text = if (isWristMotionActive) "손목 움직임 모드 동작 중" else "화면 드래그 = 마우스 이동\\n탭 = 클릭",',
-    'text = if (wheelMode) "위아래로 밀기 = 웹툰 스크롤\\n탭 = 클릭" else "손가락 이동 = 마우스 이동\\n탭 = 클릭",',
+    'text = "손가락을 위아래로 밀기 = 스크롤\\n탭 = 클릭",',
     1
 )
 source = source.replace(
@@ -97,30 +97,7 @@ if start == -1:
 end = source.find(end_marker, start)
 if end == -1:
     raise SystemExit("Could not find end of old wrist-motion button.")
-replacement = """            // Switch between touchpad cursor control and mouse-wheel scrolling.
-            Button(
-                onClick = {
-                    view.performHapticFeedback(HapticFeedbackConstants.TOGGLE_ON)
-                    wheelMode = !wheelMode
-                },
-                modifier = Modifier
-                    .fillMaxWidth(0.85f)
-                    .height(42.dp)
-                    .padding(bottom = 6.dp),
-                shape = RoundedCornerShape(21.dp),
-                colors = ButtonDefaults.buttonColors(
-                    backgroundColor = if (wheelMode) ShortsRedDark else DarkSurfaceElevated,
-                    contentColor = TextWhite
-                )
-            ) {
-                Text(
-                    text = if (wheelMode) "터치패드로 전환" else "마우스 휠로 전환",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-"""
-source = source[:start] + replacement + source[end + len("            }\n"):]
+replacement = ""
 
 # Verify that no wrist-mode UI references remain.
 for forbidden in ("isWristMotionActive", "wristMotionDetector.toggle()", "Icons.Default.Vibration"):
@@ -285,7 +262,7 @@ if "var webtoonMode by remember" not in main_source:
         raise SystemExit("Main screen state anchor not found; refusing to patch.")
     main_source = main_source.replace(
         state_anchor,
-        state_anchor + "\\n    var webtoonMode by remember { mutableStateOf(false) }",
+        state_anchor + "\n    var webtoonMode by remember { mutableStateOf(false) }",
         1
     )
 
