@@ -369,7 +369,7 @@ if "fun refreshPairedDevices()" not in ms:
         }
         try {
             _connectionState.value = ConnectionState.ProfileConnecting
-            _lastLog.value = "\${device.name ?: "선택한 기기"} 연결 요청 중…"
+            _lastLog.value = "${device.name ?: "선택한 기기"} 연결 요청 중…"
             val accepted = proxy.connect(device)
             if (!accepted) {
                 _connectionState.value = ConnectionState.Error("기기 연결 요청이 거부되었습니다.")
@@ -377,7 +377,7 @@ if "fun refreshPairedDevices()" not in ms:
             }
         } catch (e: Exception) {
             Log.e(TAG, "HID host connection request failed", e)
-            _connectionState.value = ConnectionState.Error("연결 오류: \${e.message}")
+            _connectionState.value = ConnectionState.Error("연결 오류: ${e.message}")
             _lastLog.value = "연결 실패: \${e.message}"
         }
     }
