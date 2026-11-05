@@ -39,6 +39,6 @@ root.write_text(source, encoding="utf-8")
 # Package the patched project so the updated source is available alongside the APK.
 with zipfile.ZipFile("ShortsRemote_MouseWheel_Source.zip", "w", zipfile.ZIP_DEFLATED) as archive:
     for path in Path(".").glob("**/*"):
-        if path.is_file() and not any(part in {".git", "build", ".gradle"} for part in path.parts):
+        if path.is_file() and path.name != "ShortsRemote_MouseWheel_Source.zip" and not any(part in {".git", "build", ".gradle"} for part in path.parts):
             archive.write(path, path.as_posix())
 print("Mouse-wheel patch applied; wrist-motion input is no longer used by TouchpadScreen.")
