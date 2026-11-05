@@ -205,7 +205,7 @@ new_block = """    private val mouseReportLock = Any()
                         null
                     } else if (pendingMouseClicks > 0) {
                         pendingMouseClicks--
-                        Triple(0, 0, 1)
+                        Triple(0, 0, Int.MIN_VALUE)
                     } else {
                         val x = pendingMouseDx.coerceIn(-127, 127)
                         val y = pendingMouseDy.coerceIn(-127, 127)
@@ -221,7 +221,7 @@ new_block = """    private val mouseReportLock = Any()
                 val target = connectedDevice
                 if (proxy != null && target != null) {
                     try {
-                        if (batch.third == 1 && batch.first == 0 && batch.second == 0) {
+                        if (batch.third == Int.MIN_VALUE && batch.first == 0 && batch.second == 0) {
                             val down = HidPayloads.mouseReport(
                                 buttons = HidPayloads.MOUSE_BUTTON_LEFT, dx = 0, dy = 0, wheel = 0
                             )
