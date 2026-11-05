@@ -99,6 +99,9 @@ if end == -1:
     raise SystemExit("Could not find end of old wrist-motion button.")
 replacement = ""
 
+# Normalize any remaining status references after the wrist-mode UI removal.
+source = source.replace("isWristMotionActive", "wheelMode")
+
 # Verify that no wrist-mode UI references remain.
 for forbidden in ("isWristMotionActive", "wristMotionDetector.toggle()", "Icons.Default.Vibration"):
     if forbidden in source:
