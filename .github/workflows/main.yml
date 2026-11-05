@@ -25,6 +25,11 @@ jobs:
         cat app/src/main/java/com/shortsremote/app/bluetooth/HidPayloads.kt
         echo '===== HID MANAGER KEY CALLS ====='
         grep -nE 'key|Key|report|send|press|release' app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt || true
+        echo '===== UI SOURCE FILES ====='
+        find app/src/main/java -type f -name '*.kt' -print
+        grep -RniE 'sendNextShort|sendPrevShort|sendKeyPress|onClick|onTap|nextShort|prevShort' app/src/main/java || true
+        echo '===== TOUCHPAD SCREEN ====='
+        cat app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt
         sed -i '/^package /a import androidx.compose.foundation.clickable' app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt
         sed -i 's/compileSdk = 34/compileSdk = 35/' app/build.gradle.kts
         mkdir -p app/src/main/res/values app/src/main/res/drawable
