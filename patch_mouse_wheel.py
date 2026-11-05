@@ -139,4 +139,66 @@ with zipfile.ZipFile("ShortsRemote_MouseWheel_Source.zip", "w", zipfile.ZIP_DEFL
         if path.is_file() and path.name != "ShortsRemote_MouseWheel_Source.zip" and not any(part in {".git", "build", ".gradle"} for part in path.parts):
             archive.write(path, path.as_posix())
 
-print("Touchpad / mouse-wheel mode switch patch applied.")
+
+# Throttle and coalesce wheel HID reports to avoid flooding Bluetooth.
+manager = Path("app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt")
+ms = manager.read_text(encoding="utf-8")
+old_sender = """    @SuppressLint("MissingPermission")
+    fun sendMouseWheel(wheelDelta: Int) {
+        val proxy = hidDevice ?: return
+        val target = connectedDevice ?: return
+
+        val report = HidPayloads.mouseReport(buttons = HidPayloads.MOUSE_BUTTON_NONE, dx = 0, dy = 0, wheel = wheelDelta)
+        proxy.sendReport(target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), report)
+    }"""
+new_sender = """    private val wheelLock = Any()
+    private var pendingWheelDelta = 0
+    private var wheelFlushRunning = false
+
+    @SuppressLint("MissingPermission")
+    fun sendMouseWheel(wheelDelta: Int) {
+        if (wheelDelta == 0) return
+        val start = synchronized(wheelLock) {
+            pendingWheelDelta = (pendingWheelDelta + wheelDelta).coerceIn(-1024, 1024)
+            if (wheelFlushRunning) false else {
+                wheelFlushRunning = true
+                true
+            }
+        }
+        if (!start) return
+        scope.launch {
+            while (true) {
+                val batch = synchronized(wheelLock) {
+                    if (pendingWheelDelta == 0) {
+                        wheelFlushRunning = false
+                        return@launch
+                    }
+                    val value = pendingWheelDelta.coerceIn(-127, 127)
+                    pendingWheelDelta -= value
+                    value
+                }
+                val proxy = hidDevice
+                val target = connectedDevice
+                if (proxy != null && target != null) {
+                    try {
+                        val report = HidPayloads.mouseReport(
+                            buttons = HidPayloads.MOUSE_BUTTON_NONE, dx = 0, dy = 0, wheel = batch
+                        )
+                        if (!proxy.sendReport(target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), report)) {
+                            Log.w(TAG, "Mouse wheel report rejected")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Mouse wheel report failed", e)
+                    }
+                }
+                delay(25)
+            }
+        }
+    }"""
+if ms.includes(old_sender):
+    ms = ms.replace(old_sender, new_sender)
+elif not ms.includes("private val wheelLock = Any()"):
+    raise SystemExit("Wheel sender mismatch; refusing patch.")
+manager.write_text(ms, encoding="utf-8")
+
+print("Touchpad / mouse-wheel mode switch and Bluetooth wheel throttle patch applied.")
