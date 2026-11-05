@@ -195,10 +195,73 @@ new_sender = """    private val wheelLock = Any()
             }
         }
     }"""
-if ms.includes(old_sender):
+if old_sender in ms:
     ms = ms.replace(old_sender, new_sender)
-elif not ms.includes("private val wheelLock = Any()"):
+elif "private val wheelLock = Any()" not in ms:
     raise SystemExit("Wheel sender mismatch; refusing patch.")
+
+# Coalesce touchpad cursor movement too; rapid drag callbacks must not flood HID.
+old_move = """    @SuppressLint("MissingPermission")
+    fun sendMouseMove(dx: Int, dy: Int, buttons: Byte = HidPayloads.MOUSE_BUTTON_NONE) {
+        val proxy = hidDevice ?: return
+        val target = connectedDevice ?: return
+
+        val report = HidPayloads.mouseReport(buttons = buttons, dx = dx, dy = dy, wheel = 0)
+        proxy.sendReport(target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), report)
+    }"""
+new_move = """    private val mouseMoveLock = Any()
+    private var pendingMouseDx = 0
+    private var pendingMouseDy = 0
+    private var mouseMoveFlushRunning = false
+
+    @SuppressLint("MissingPermission")
+    fun sendMouseMove(dx: Int, dy: Int, buttons: Byte = HidPayloads.MOUSE_BUTTON_NONE) {
+        if (dx == 0 && dy == 0) return
+        val start = synchronized(mouseMoveLock) {
+            pendingMouseDx = (pendingMouseDx + dx).coerceIn(-2048, 2048)
+            pendingMouseDy = (pendingMouseDy + dy).coerceIn(-2048, 2048)
+            if (mouseMoveFlushRunning) false else {
+                mouseMoveFlushRunning = true
+                true
+            }
+        }
+        if (!start) return
+        scope.launch {
+            while (true) {
+                val batch = synchronized(mouseMoveLock) {
+                    if (pendingMouseDx == 0 && pendingMouseDy == 0) {
+                        mouseMoveFlushRunning = false
+                        return@launch
+                    }
+                    val x = pendingMouseDx.coerceIn(-127, 127)
+                    val y = pendingMouseDy.coerceIn(-127, 127)
+                    pendingMouseDx -= x
+                    pendingMouseDy -= y
+                    Pair(x, y)
+                }
+                val proxy = hidDevice
+                val target = connectedDevice
+                if (proxy != null && target != null) {
+                    try {
+                        val report = HidPayloads.mouseReport(
+                            buttons = buttons, dx = batch.first, dy = batch.second, wheel = 0
+                        )
+                        if (!proxy.sendReport(target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), report)) {
+                            Log.w(TAG, "Mouse move report rejected")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Mouse move report failed", e)
+                    }
+                }
+                delay(16)
+            }
+        }
+    }"""
+if old_move in ms:
+    ms = ms.replace(old_move, new_move)
+elif "private val mouseMoveLock = Any()" not in ms:
+    raise SystemExit("Mouse move sender mismatch; refusing patch.")
+
 manager.write_text(ms, encoding="utf-8")
 
 print("Touchpad / mouse-wheel mode switch and Bluetooth wheel throttle patch applied.")
