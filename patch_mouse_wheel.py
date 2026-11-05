@@ -120,7 +120,7 @@ replacement = """            // Switch between touchpad cursor control and mouse
                 )
             }
 """
-source = source[:start] + replacement + source[end:]
+source = source[:start] + replacement + source[end + len("            }\n"):]
 
 # Verify that no wrist-mode UI references remain.
 for forbidden in ("isWristMotionActive", "wristMotionDetector.toggle()", "Icons.Default.Vibration"):
