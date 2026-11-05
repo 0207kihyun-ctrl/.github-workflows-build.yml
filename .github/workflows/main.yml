@@ -24,6 +24,107 @@ jobs:
         run: |
           unzip -o ShortsRemote_Source_Compatibility.zip
           cp -rf ShortsRemote/* .
+          # Replace the old touchpad with a dedicated vertical mouse-wheel screen.
+          rm -f app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt
+          cat > app/src/main/java/com/shortsremote/app/ui/WheelScreen.kt <<'KOTLIN'
+          package com.shortsremote.app.ui
+
+          import android.view.HapticFeedbackConstants
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.gestures.detectDragGestures
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.material.Button
+          import androidx.compose.material.ButtonDefaults
+          import androidx.compose.material.Text
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.input.pointer.pointerInput
+          import androidx.compose.ui.platform.LocalView
+          import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
+          import androidx.wear.compose.material.*
+          import com.shortsremote.app.bluetooth.BluetoothHidManager
+          import com.shortsremote.app.ui.theme.*
+
+          @Composable
+          fun WheelScreen(
+              hidManager: BluetoothHidManager,
+              onNavigateBack: () -> Unit
+          ) {
+              val view = LocalView.current
+              var directionText by remember { mutableStateOf("손가락을 위아래로 밀어 스크롤") }
+
+              Box(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .background(PureBlack)
+                      .pointerInput(Unit) {
+                          var wheelRemainder = 0f
+                          detectDragGestures { change, dragAmount ->
+                              change.consume()
+                              // Low scroll sensitivity: one wheel step per ~8 px of finger travel.
+                              wheelRemainder += -dragAmount.y * 0.12f
+                              val steps = wheelRemainder.toInt()
+                              if (steps != 0) {
+                                  hidManager.sendMouseWheel(steps)
+                                  wheelRemainder -= steps
+                                  directionText = if (steps > 0) "위로 스크롤" else "아래로 스크롤"
+                                  view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                              }
+                          }
+                      },
+                  contentAlignment = Alignment.Center
+              ) {
+                  Column(
+                      modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 22.dp),
+                      horizontalAlignment = Alignment.CenterHorizontally,
+                      verticalArrangement = Arrangement.Center
+                  ) {
+                      Text("마우스 휠", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                      Spacer(Modifier.height(12.dp))
+                      Text(directionText, fontSize = 11.sp, color = AccentBlue)
+                      Spacer(Modifier.height(8.dp))
+                      Text("위아래로 쓸어 작은 단위로 스크롤", fontSize = 9.sp, color = TextMuted)
+                      Spacer(Modifier.height(18.dp))
+                      Button(
+                          onClick = onNavigateBack,
+                          colors = ButtonDefaults.buttonColors(
+                              backgroundColor = DarkSurfaceElevated,
+                              contentColor = TextWhite
+                          )
+                      ) {
+                          Text("뒤로", fontSize = 11.sp)
+                      }
+                  }
+              }
+          }
+          KOTLIN
+          python3 - <<'PY'
+          from pathlib import Path
+          main = Path("app/src/main/java/com/shortsremote/app/MainActivity.kt")
+          s = main.read_text()
+          s = s.replace("import com.shortsremote.app.ui.TouchpadScreen", "import com.shortsremote.app.ui.WheelScreen")
+          s = s.replace("    TOUCHPAD,", "    WHEEL,")
+          s = s.replace("onNavigateToTouchpad = { currentScreen = ScreenState.TOUCHPAD }", "onNavigateToWheel = { currentScreen = ScreenState.WHEEL }")
+          s = s.replace("ScreenState.TOUCHPAD -> {", "ScreenState.WHEEL -> {")
+          s = s.replace("TouchpadScreen(", "WheelScreen(")
+          s = s.replace("                                wristMotionDetector = wristMotionDetector,\n", "")
+          main.write_text(s)
+
+          ui = Path("app/src/main/java/com/shortsremote/app/ui/MainShortsScreen.kt")
+          s = ui.read_text()
+          s = s.replace("onNavigateToTouchpad", "onNavigateToWheel")
+          s = s.replace("터치패드 이동 →", "마우스 휠 →")
+          s = s.replace("터치패드로 이동", "마우스 휠 모드")
+          s = s.replace("Header: Connection status & Quick Nav to Touchpad", "Header: Connection status & Quick Nav to Mouse Wheel")
+          ui.write_text(s)
+
+          manager = Path("app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt")
+          s = manager.read_text().replace("Galaxy Watch 5 Shorts Remote & Touchpad", "Galaxy Watch 5 Shorts Remote & Mouse Wheel")
+          manager.write_text(s)
+          PY
           TARGET="app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt"
           if [ -f "$TARGET" ] && ! grep -q '^import androidx.compose.foundation.clickable$' "$TARGET"; then
             sed -i '/^package /a import androidx.compose.foundation.clickable' "$TARGET"
