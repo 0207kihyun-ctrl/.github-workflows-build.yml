@@ -98,7 +98,7 @@ end = source.find(end_marker, start)
 if end == -1:
     raise SystemExit("Could not find end of old wrist-motion button.")
 replacement = ""
-source = source[:start] + "        }\\n    }\\n}" + source[end + len(end_marker):]
+source = source[:start] + "        }\n    }\n}" + source[end + len(end_marker):]
 
 # Normalize any remaining status references after the wrist-mode UI removal.
 source = source.replace("isWristMotionActive", "wheelMode")
