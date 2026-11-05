@@ -22,6 +22,9 @@ jobs:
         unzip -o ShortsRemote_Source_Compatibility.zip
         cp -rf ShortsRemote/* .
         echo '--- BLUETOOTH HID SOURCE DIAGNOSTICS ---'
+        echo '--- HID DESCRIPTOR ---'; cat ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/HidReportDescriptor.kt
+        echo '--- HID PAYLOADS ---'; cat ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/HidPayloads.kt
+        echo '--- HID MANAGER ---'; cat ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt
         grep -R -n -C 8 -E 'sendMouseWheel|sendMouseMove|BluetoothHidDevice|disconnect|connect\(' ShortsRemote/app/src/main/java || true
         for f in ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/HidReportDescriptor.kt ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/HidPayloads.kt ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt ShortsRemote/app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt; do echo "--- FULL SOURCE: $f ---"; nl -ba "$f"; done
         python3 patch_mouse_wheel.py
