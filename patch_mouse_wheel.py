@@ -325,3 +325,115 @@ main_source = main_source.replace(footer_old, footer_new, 1)
 
 main_file.write_text(main_source, encoding="utf-8")
 print("Shorts/Webtoon ▲▼ mode patch applied.")
+
+
+# WearMouse-style picker for already paired Bluetooth hosts.
+from pathlib import Path
+manager = Path("app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt")
+ms = manager.read_text(encoding="utf-8")
+anchor = "    val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()"
+if "val pairedDevices: StateFlow<List<BluetoothDevice>>" not in ms:
+    if anchor not in ms: raise SystemExit("HID state anchor missing")
+    ms = ms.replace(anchor, anchor + """
+
+    private val _pairedDevices = MutableStateFlow<List<BluetoothDevice>>(emptyList())
+    val pairedDevices: StateFlow<List<BluetoothDevice>> = _pairedDevices.asStateFlow()
+""", 1)
+
+anchor = "    @SuppressLint(\"MissingPermission\")\n    private fun registerHidApp() {"
+if "fun refreshPairedDevices()" not in ms:
+    if anchor not in ms: raise SystemExit("HID register anchor missing")
+    methods = """    @SuppressLint("MissingPermission")
+    fun refreshPairedDevices() {
+        val adapter = bluetoothAdapter
+        if (adapter == null || !adapter.isEnabled) {
+            _pairedDevices.value = emptyList()
+            return
+        }
+        try {
+            _pairedDevices.value = adapter.bondedDevices
+                .filter { it.type != BluetoothDevice.DEVICE_TYPE_LE }
+                .sortedBy { it.name ?: it.address }
+        } catch (e: SecurityException) {
+            _lastLog.value = "블루투스 기기 권한을 확인해 주세요"
+            Log.e(TAG, "Cannot read paired Bluetooth devices", e)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    fun connectToDevice(device: BluetoothDevice) {
+        val proxy = hidDevice
+        if (proxy == null) {
+            _lastLog.value = "HID 준비 중입니다. 잠시 후 다시 선택해 주세요."
+            return
+        }
+        try {
+            _connectionState.value = ConnectionState.ProfileConnecting
+            _lastLog.value = "\${device.name ?: "선택한 기기"} 연결 요청 중…"
+            val accepted = proxy.connect(device)
+            if (!accepted) {
+                _connectionState.value = ConnectionState.Error("기기 연결 요청이 거부되었습니다.")
+                _lastLog.value = "연결 실패: 기기가 블루투스 페어링되어 있는지 확인해 주세요."
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "HID host connection request failed", e)
+            _connectionState.value = ConnectionState.Error("연결 오류: \${e.message}")
+            _lastLog.value = "연결 실패: \${e.message}"
+        }
+    }
+
+"""
+    ms = ms.replace(anchor, methods + anchor, 1)
+
+ms = ms.replace(
+    '                _connectionState.value = ConnectionState.ProfileReady\n',
+    '                _connectionState.value = ConnectionState.ProfileReady\n                refreshPairedDevices()\n',
+    1
+)
+ms = ms.replace('"iPhone 연결 끊김"', '"블루투스 기기 연결 끊김"')
+ms = ms.replace('"iPhone 연결 중…"', '"블루투스 기기 연결 중…"')
+ms = ms.replace('"iPhone($name) 연결 성공!"', '"$name 연결 성공!"')
+manager.write_text(ms, encoding="utf-8")
+
+settings = Path("app/src/main/java/com/shortsremote/app/ui/SettingsScreen.kt")
+ss = settings.read_text(encoding="utf-8")
+if "val pairedDevices by hidManager.pairedDevices.collectAsState()" not in ss:
+    anchor = "    val lastLog by hidManager.lastLog.collectAsState()"
+    if anchor not in ss: raise SystemExit("Settings state anchor missing")
+    ss = ss.replace(anchor, anchor + "\n    val pairedDevices by hidManager.pairedDevices.collectAsState()", 1)
+
+if "페어링된 기기 선택" not in ss:
+    anchor = """            Text(
+                text = lastLog,"""
+    if anchor not in ss: raise SystemExit("Settings log anchor missing")
+    picker_ui = """            Text(
+                text = "페어링된 기기 선택",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextWhite
+            )
+            Button(
+                onClick = { hidManager.refreshPairedDevices() },
+                modifier = Modifier.fillMaxWidth(0.85f).height(34.dp),
+                colors = ButtonDefaults.buttonColors(backgroundColor = DarkSurfaceElevated)
+            ) { Text("기기 목록 새로고침", fontSize = 10.sp) }
+            if (pairedDevices.isEmpty()) {
+                Text(
+                    text = "표시할 기기가 없습니다.\\n워치 블루투스 설정에서 아이폰/컴퓨터와 먼저 페어링하세요.",
+                    fontSize = 9.sp,
+                    color = TextMuted
+                )
+            } else {
+                pairedDevices.take(4).forEach { device ->
+                    Button(
+                        onClick = { hidManager.connectToDevice(device) },
+                        modifier = Modifier.fillMaxWidth(0.9f).height(32.dp),
+                        colors = ButtonDefaults.buttonColors(backgroundColor = DarkSurfaceElevated)
+                    ) { Text(device.name ?: device.address, fontSize = 10.sp, maxLines = 1) }
+                }
+            }
+
+"""
+    ss = ss.replace(anchor, picker_ui + anchor, 1)
+settings.write_text(ss, encoding="utf-8")
+print("Bluetooth paired-device picker patch applied.")
