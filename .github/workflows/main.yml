@@ -21,6 +21,54 @@ jobs:
     - run: |
         unzip -o ShortsRemote_Source_Compatibility.zip
         cp -rf ShortsRemote/* .
+        # Build-only compatibility patch: add the missing Compose clickable import.
+        # The ZIP and repository Kotlin source remain unchanged.
+        TARGET="app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt"
+        if [ -f "$TARGET" ] && ! grep -q '^import androidx.compose.foundation.clickable        echo '--- BLUETOOTH HID SOURCE DIAGNOSTICS ---'
+        echo '--- HID DESCRIPTOR ---'; cat ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/HidReportDescriptor.kt
+        echo '--- HID PAYLOADS ---'; cat ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/HidPayloads.kt
+        echo '--- HID MANAGER ---'; cat ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt
+        grep -R -n -C 8 -E 'sendMouseWheel|sendMouseMove|BluetoothHidDevice|disconnect|connect\(' ShortsRemote/app/src/main/java || true
+        for f in ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/HidReportDescriptor.kt ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/HidPayloads.kt ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt ShortsRemote/app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt; do echo "--- FULL SOURCE: $f ---"; nl -ba "$f"; done
+
+        for f in app/src/main/java/com/shortsremote/app/MainActivity.kt app/src/main/java/com/shortsremote/app/ui/MainShortsScreen.kt app/src/main/java/com/shortsremote/app/ui/SettingsScreen.kt app/src/main/AndroidManifest.xml; do if [ -f "$f" ]; then echo "--- EXTRA SOURCE: $f ---"; nl -ba "$f"; fi; done
+        # Keep all Kotlin source files unchanged; build only the supplied project.
+        sed -i 's/compileSdk = 34/compileSdk = 35/' app/build.gradle.kts
+        mkdir -p app/src/main/res/values app/src/main/res/drawable
+        cat > app/src/main/res/values/themes.xml <<'EOF'
+        <resources>
+            <style name="Theme.ShortsRemote" parent="android:style/Theme.Material.Light.NoActionBar">
+                <item name="android:fontFamily">sans</item>
+                <item name="android:colorAccent">#6750A4</item>
+                <item name="android:windowLightStatusBar">true</item>
+            </style>
+        </resources>
+        EOF
+        cat > app/src/main/res/drawable/ic_launcher_foreground.xml <<'EOF'
+        <vector xmlns:android="http://schemas.android.com/apk/res/android"
+            android:width="108dp" android:height="108dp"
+            android:viewportWidth="108" android:viewportHeight="108">
+            <path android:fillColor="#6750A4" android:pathData="M12,12h84v84h-84z"/>
+            <path android:fillColor="#FFFFFF" android:pathData="M42,30 L42,78 L78,54 Z"/>
+        </vector>
+        EOF
+        wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
+        unzip -q gradle-8.9-bin.zip
+        cat > gradle.properties <<'EOF'
+        android.useAndroidX=true
+        org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
+        org.gradle.workers.max=2
+        org.gradle.parallel=false
+        EOF
+        ./gradle-8.9/bin/gradle --no-daemon --max-workers=2 assembleDebug
+        mkdir -p artifacts
+        find . -type f -name '*.apk' -print -exec cp {} artifacts/ \;
+        test -n "$(find artifacts -type f -name '*.apk' -print -quit)"
+    - uses: actions/upload-artifact@v4
+      with: {name: apk, path: "artifacts/*", if-no-files-found: error}
+ "$TARGET"; then
+          sed -i '/^package /a import androidx.compose.foundation.clickable' "$TARGET"
+        fi
         echo '--- BLUETOOTH HID SOURCE DIAGNOSTICS ---'
         echo '--- HID DESCRIPTOR ---'; cat ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/HidReportDescriptor.kt
         echo '--- HID PAYLOADS ---'; cat ShortsRemote/app/src/main/java/com/shortsremote/app/bluetooth/HidPayloads.kt
