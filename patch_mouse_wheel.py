@@ -262,3 +262,12 @@ new_block = """    private val mouseReportLock = Any()
         enqueueMouseInput(click = true)
         _lastLog.value = "마우스 클릭 대기열 등록"
     }"""
+
+
+if old_move not in ms or old_wheel not in ms or old_click not in ms:
+    raise SystemExit("Mouse HID functions did not match; refusing unsafe patch.")
+ms = ms.replace(old_move, new_block, 1)
+ms = ms.replace(old_wheel, "", 1)
+ms = ms.replace(old_click, "", 1)
+manager.write_text(ms, encoding="utf-8")
+print("Unified serialized mouse HID queue patch applied.")
