@@ -110,7 +110,7 @@ jobs:
           s = s.replace("onNavigateToTouchpad = { currentScreen = ScreenState.TOUCHPAD }", "onNavigateToWheel = { currentScreen = ScreenState.WHEEL }")
           s = s.replace("ScreenState.TOUCHPAD -> {", "ScreenState.WHEEL -> {")
           s = s.replace("TouchpadScreen(", "WheelScreen(")
-          s = s.replace("                                wristMotionDetector = wristMotionDetector,\n", "")
+          s = s.replace("WheelScreen(\n                                hidManager = hidManager,\n                                wristMotionDetector = wristMotionDetector,\n", "WheelScreen(\n                                hidManager = hidManager,\n")
           main.write_text(s)
 
           ui = Path("app/src/main/java/com/shortsremote/app/ui/MainShortsScreen.kt")
