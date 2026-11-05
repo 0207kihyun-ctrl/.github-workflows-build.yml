@@ -24,6 +24,10 @@ jobs:
         run: |
           unzip -o ShortsRemote_Source_Compatibility.zip
           cp -rf ShortsRemote/* .
+          echo '===== BluetoothHidManager.kt (source inspection) ====='
+          sed -n '1,320p' app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt
+          echo '===== AndroidManifest Bluetooth permissions ====='
+          grep -n -E 'BLUETOOTH|uses-feature|application|uses-sdk' app/src/main/AndroidManifest.xml || true
           # Replace the old touchpad with a dedicated vertical mouse-wheel screen.
           rm -f app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt
           cat > app/src/main/java/com/shortsremote/app/ui/WheelScreen.kt <<'KOTLIN'
