@@ -203,21 +203,21 @@ jobs:
                   raise SystemExit("Shorts action methods not found")
               manager = manager.replace(anchor, helper + anchor, 1)
 
-          replacements = {
-              "sendMouseWheel(-1)\n        _lastLog.value = \"다음 쇼츠: 마우스 휠 아래\"":
-                  "sendKeyPress(HidPayloads.KEY_DOWN_ARROW)\n        _lastLog.value = \"다음 쇼츠 전송 (KEY_DOWN_ARROW 0x51)\"",
-              "sendMouseWheel(1)\n        _lastLog.value = \"이전 쇼츠: 마우스 휠 위\"":
-                  "sendKeyPress(HidPayloads.KEY_UP_ARROW)\n        _lastLog.value = \"이전 쇼츠 전송 (KEY_UP_ARROW 0x52)\"",
-              "sendMouseButton(HidPayloads.MOUSE_BUTTON_LEFT, \"좋아요\")\n        _lastLog.value = \"좋아요: 표준 마우스 왼쪽 클릭\"":
-                  "sendKeyPress(HidPayloads.KEY_L)\n        _lastLog.value = \"좋아요 전송 (KEY_L 0x0F)\""
-          }
-          for old, new in replacements.items():
-              if old not in manager:
-                  raise SystemExit("Could not find expected Shorts key mapping: " + old.split("\\n")[0])
-              manager = manager.replace(old, new, 1)
+          import re
+          mappings = [
+              ("sendNextShort", "HidPayloads.KEY_DOWN_ARROW", "다음 쇼츠 전송 (KEY_DOWN_ARROW 0x51)"),
+              ("sendPrevShort", "HidPayloads.KEY_UP_ARROW", "이전 쇼츠 전송 (KEY_UP_ARROW 0x52)"),
+              ("sendLikeShort", "HidPayloads.KEY_L", "좋아요 전송 (KEY_L 0x0F)"),
+          ]
+          for method, key, message in mappings:
+              pattern = r"(    fun " + method + r"\(\) \{\n).*?(\n    \})"
+              body = "        sendKeyPress(" + key + ")\n        _lastLog.value = \"" + message + "\""
+              manager, count = re.subn(pattern, lambda m: m.group(1) + body + m.group(2), manager, count=1, flags=re.S)
+              if count != 1:
+                  raise SystemExit("Could not patch keyboard mapping: " + method)
 
           manager_file.write_text(manager, encoding="utf-8")
-          print("HID button mapping applied: Next=Left, Like=Middle, Previous=Right")
+          print("HID keyboard mapping applied: Next=Down, Previous=Up, Like=L")
           print("Mouse wheel report and descriptor left unchanged.")
           PY
           TARGET="app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt"
