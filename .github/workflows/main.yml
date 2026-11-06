@@ -126,6 +126,81 @@ jobs:
           s = manager.read_text().replace("Galaxy Watch 5 Shorts Remote & Touchpad", "Galaxy Watch 5 Shorts Remote & Mouse Wheel")
           manager.write_text(s)
           PY
+          python3 - <<'PY'
+          from pathlib import Path
+
+          payload_file = Path("app/src/main/java/com/shortsremote/app/bluetooth/HidPayloads.kt")
+          payload = payload_file.read_text(encoding="utf-8")
+          if "MOUSE_BUTTON_MIDDLE" not in payload:
+              anchor = "    const val MOUSE_BUTTON_RIGHT: Byte = 0x02"
+              if anchor not in payload:
+                  raise SystemExit("Mouse button constants not found")
+              payload = payload.replace(anchor, anchor + "\n    const val MOUSE_BUTTON_MIDDLE: Byte = 0x04", 1)
+          payload_file.write_text(payload, encoding="utf-8")
+
+          manager_file = Path("app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt")
+          manager = manager_file.read_text(encoding="utf-8")
+          if "fun sendMouseButton(button: Byte, actionName: String)" not in manager:
+              anchor = "    fun sendNextShort() {"
+              helper = """    @SuppressLint("MissingPermission")
+              fun sendMouseButton(button: Byte, actionName: String) {
+                  val proxy = hidDevice
+                  val target = connectedDevice
+                  if (proxy == null || target == null) {
+                      _lastLog.value = "iPhone HID 미연결 - 버튼 전송 대기"
+                      return
+                  }
+
+                  scope.launch {
+                      try {
+                          val down = HidPayloads.mouseReport(
+                              buttons = button, dx = 0, dy = 0, wheel = 0
+                          )
+                          val downSent = proxy.sendReport(
+                              target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), down
+                          )
+                          delay(45)
+                          val up = HidPayloads.mouseReport(
+                              buttons = HidPayloads.MOUSE_BUTTON_NONE,
+                              dx = 0, dy = 0, wheel = 0
+                          )
+                          val upSent = proxy.sendReport(
+                              target, HidReportDescriptor.REPORT_ID_MOUSE.toInt(), up
+                          )
+                          _lastLog.value = if (downSent && upSent) {
+                              "$actionName 마우스 버튼 전송 완료"
+                          } else {
+                              "$actionName 마우스 버튼 전송 실패"
+                          }
+                      } catch (e: Exception) {
+                          Log.e(TAG, "$actionName mouse button failed", e)
+                          _lastLog.value = "$actionName 전송 오류"
+                      }
+                  }
+              }
+
+          """
+              if anchor not in manager:
+                  raise SystemExit("Shorts action methods not found")
+              manager = manager.replace(anchor, helper + anchor, 1)
+
+          replacements = {
+              "sendKeyPress(HidPayloads.KEY_DOWN_ARROW)\n        _lastLog.value = \"다음 쇼츠 전송 (KEY_DOWN_ARROW 0x51)\"":
+                  "sendMouseButton(HidPayloads.MOUSE_BUTTON_LEFT, \"다음 쇼츠\")\n        _lastLog.value = \"다음 쇼츠: 마우스 왼쪽 버튼\"",
+              "sendKeyPress(HidPayloads.KEY_UP_ARROW)\n        _lastLog.value = \"이전 쇼츠 전송 (KEY_UP_ARROW 0x52)\"":
+                  "sendMouseButton(HidPayloads.MOUSE_BUTTON_RIGHT, \"이전 쇼츠\")\n        _lastLog.value = \"이전 쇼츠: 마우스 오른쪽 버튼\"",
+              "sendKeyPress(HidPayloads.KEY_L)\n        _lastLog.value = \"좋아요 전송 (KEY_L 0x0F)\"":
+                  "sendMouseButton(HidPayloads.MOUSE_BUTTON_MIDDLE, \"좋아요\")\n        _lastLog.value = \"좋아요: 마우스 가운데 버튼\""
+          }
+          for old, new in replacements.items():
+              if old not in manager:
+                  raise SystemExit("Could not find expected Shorts key mapping: " + old.split("\\n")[0])
+              manager = manager.replace(old, new, 1)
+
+          manager_file.write_text(manager, encoding="utf-8")
+          print("HID button mapping applied: Next=Left, Like=Middle, Previous=Right")
+          print("Mouse wheel report and descriptor left unchanged.")
+          PY
           TARGET="app/src/main/java/com/shortsremote/app/ui/TouchpadScreen.kt"
           if [ -f "$TARGET" ] && ! grep -q '^import androidx.compose.foundation.clickable$' "$TARGET"; then
             sed -i '/^package /a import androidx.compose.foundation.clickable' "$TARGET"
