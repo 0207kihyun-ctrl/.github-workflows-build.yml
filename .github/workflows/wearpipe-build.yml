@@ -3,8 +3,6 @@ name: Build WearPipe APK
 on:
   push:
     branches: [main]
-    paths:
-      - ".github/workflows/wearpipe-build.yml"
   workflow_dispatch:
 
 permissions:
