@@ -205,11 +205,11 @@ jobs:
 
           replacements = {
               "sendKeyPress(HidPayloads.KEY_DOWN_ARROW)\n        _lastLog.value = \"다음 쇼츠 전송 (KEY_DOWN_ARROW 0x51)\"":
-                  "sendMouseButton(HidPayloads.MOUSE_BUTTON_LEFT, \"다음 쇼츠\")\n        _lastLog.value = \"다음 쇼츠: 마우스 왼쪽 버튼\"",
+                  "sendMouseWheel(-1)\n        _lastLog.value = \"다음 쇼츠: 마우스 휠 아래\"",
               "sendKeyPress(HidPayloads.KEY_UP_ARROW)\n        _lastLog.value = \"이전 쇼츠 전송 (KEY_UP_ARROW 0x52)\"":
-                  "sendMouseButton(HidPayloads.MOUSE_BUTTON_RIGHT, \"이전 쇼츠\")\n        _lastLog.value = \"이전 쇼츠: 마우스 오른쪽 버튼\"",
+                  "sendMouseWheel(1)\n        _lastLog.value = \"이전 쇼츠: 마우스 휠 위\"",
               "sendKeyPress(HidPayloads.KEY_L)\n        _lastLog.value = \"좋아요 전송 (KEY_L 0x0F)\"":
-                  "sendMouseButton(HidPayloads.MOUSE_BUTTON_MIDDLE, \"좋아요\")\n        _lastLog.value = \"좋아요: 마우스 가운데 버튼\""
+                  "sendMouseButton(HidPayloads.MOUSE_BUTTON_LEFT, \"좋아요\")\n        _lastLog.value = \"좋아요: 표준 마우스 왼쪽 클릭\""
           }
           for old, new in replacements.items():
               if old not in manager:
