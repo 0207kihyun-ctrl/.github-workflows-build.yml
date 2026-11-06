@@ -13,11 +13,7 @@ jobs:
         run: |
           unzip -o ShortsRemote_Source_Compatibility.zip
           cp -rf ShortsRemote/* .
-          echo "===== SOURCE FILE LIST ====="
-          find app/src/main/java -type f | sort
-          echo "===== HID MANAGER ====="
-          sed -n '1,360p' app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt
-          echo "===== HID REPORT DESCRIPTOR ====="
-          sed -n '1,260p' app/src/main/java/com/shortsremote/app/bluetooth/HidReportDescriptor.kt
-          echo "===== HID PAYLOADS ====="
-          sed -n '1,260p' app/src/main/java/com/shortsremote/app/bluetooth/HidPayloads.kt
+          echo "===== MAIN SHORTS SCREEN ====="
+          sed -n '1,420p' app/src/main/java/com/shortsremote/app/ui/MainShortsScreen.kt
+          echo "===== MAIN ACTIVITY ====="
+          sed -n '1,300p' app/src/main/java/com/shortsremote/app/MainActivity.kt
