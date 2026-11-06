@@ -36,6 +36,23 @@ jobs:
           print("YouTube Shorts search filtering applied.")
           PY
 
+      - name: Expand video to fill the watch display
+        working-directory: WearPipe
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("app/src/wearMain/kotlin/net/wearpipe/app/ui/PlayerSurface.kt")
+          source = path.read_text()
+          old = "                    useController = false\n                    player = controller"
+          new = """                    useController = false
+                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    player = controller"""
+          if old not in source:
+              raise SystemExit("Could not locate PlayerView setup; refusing to build without video sizing change")
+          path.write_text(source.replace(old, new, 1))
+          print("PlayerView set to zoom-fill the watch display.")
+          PY
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
