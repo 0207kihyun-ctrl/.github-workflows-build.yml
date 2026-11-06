@@ -55,24 +55,35 @@ jobs:
               onNavigateBack: () -> Unit
           ) {
               val view = LocalView.current
-              var directionText by remember { mutableStateOf("손가락을 위아래로 밀어 스크롤") }
+              var directionText by remember { mutableStateOf("드래그해서 커서 이동") }
+              var wheelMode by remember { mutableStateOf(false) }
 
               Box(
                   modifier = Modifier
                       .fillMaxSize()
                       .background(PureBlack)
-                      .pointerInput(Unit) {
+                      .pointerInput(wheelMode) {
                           var wheelRemainder = 0f
                           detectDragGestures { change, dragAmount ->
                               change.consume()
-                              // Low scroll sensitivity: one wheel step per ~8 px of finger travel.
-                              wheelRemainder += -dragAmount.y * 0.12f
-                              val steps = wheelRemainder.toInt()
-                              if (steps != 0) {
-                                  hidManager.sendMouseWheel(steps)
-                                  wheelRemainder -= steps
-                                  directionText = if (steps > 0) "위로 스크롤" else "아래로 스크롤"
-                                  view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                              if (wheelMode) {
+                                  // Keep wheel input small and steady.
+                                  wheelRemainder += -dragAmount.y * 0.12f
+                                  val steps = wheelRemainder.toInt()
+                                  if (steps != 0) {
+                                      hidManager.sendMouseWheel(steps)
+                                      wheelRemainder -= steps
+                                      directionText = if (steps > 0) "위로 스크롤" else "아래로 스크롤"
+                                      view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                  }
+                              } else {
+                                  // Relative mouse movement lets the user move the iPhone pointer away from the edge.
+                                  val dx = (dragAmount.x * 1.6f).toInt()
+                                  val dy = (dragAmount.y * 1.6f).toInt()
+                                  if (dx != 0 || dy != 0) {
+                                      hidManager.sendMouseMove(dx, dy)
+                                      directionText = "커서 이동 중"
+                                  }
                               }
                           }
                       },
@@ -83,11 +94,18 @@ jobs:
                       horizontalAlignment = Alignment.CenterHorizontally,
                       verticalArrangement = Arrangement.Center
                   ) {
-                      Text("마우스 휠", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                      Text(if (wheelMode) "마우스 휠" else "마우스 터치패드", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextWhite)
                       Spacer(Modifier.height(12.dp))
                       Text(directionText, fontSize = 11.sp, color = AccentBlue)
                       Spacer(Modifier.height(8.dp))
-                      Text("위아래로 쓸어 작은 단위로 스크롤", fontSize = 9.sp, color = TextMuted)
+                      Text(if (wheelMode) "위아래로 쓸어 작은 단위로 스크롤" else "손가락을 움직여 커서를 화면 안쪽으로 이동", fontSize = 9.sp, color = TextMuted)
+                      Spacer(Modifier.height(10.dp))
+                      Text(
+                          text = if (wheelMode) "터치패드 모드로 전환" else "휠 모드로 전환",
+                          fontSize = 10.sp,
+                          color = AccentBlue,
+                          modifier = Modifier.clickable { wheelMode = !wheelMode }
+                      )
                       Spacer(Modifier.height(18.dp))
                       Button(
                           onClick = onNavigateBack,
