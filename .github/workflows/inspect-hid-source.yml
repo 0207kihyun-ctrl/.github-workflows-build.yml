@@ -1,0 +1,23 @@
+name: Inspect ShortsRemote HID source
+on:
+  push:
+    paths:
+      - ".github/workflows/inspect-hid-source.yml"
+  workflow_dispatch:
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract and print HID source files
+        run: |
+          unzip -o ShortsRemote_Source_Compatibility.zip
+          cp -rf ShortsRemote/* .
+          echo "===== SOURCE FILE LIST ====="
+          find app/src/main/java -type f | sort
+          echo "===== HID MANAGER ====="
+          sed -n '1,360p' app/src/main/java/com/shortsremote/app/bluetooth/BluetoothHidManager.kt
+          echo "===== HID REPORT DESCRIPTOR ====="
+          sed -n '1,260p' app/src/main/java/com/shortsremote/app/bluetooth/HidReportDescriptor.kt
+          echo "===== HID PAYLOADS ====="
+          sed -n '1,260p' app/src/main/java/com/shortsremote/app/bluetooth/HidPayloads.kt
