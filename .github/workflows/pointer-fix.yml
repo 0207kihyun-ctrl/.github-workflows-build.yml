@@ -1,0 +1,43 @@
+name: ShortsRemote pointer fix APK
+on:
+  push:
+    paths:
+      - "pointer-fix-trigger.txt"
+      - ".github/workflows/pointer-fix.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+      - name: Install Android SDK
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager 2>/dev/null | head -n 1)"
+          if [ -z "$SDKMANAGER" ]; then echo "sdkmanager not found"; exit 1; fi
+          yes | "$SDKMANAGER" --licenses || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - name: Extract source and apply serialized HID pointer fix
+        run: |
+          unzip -o ShortsRemote_Source_Compatibility.zip
+          cp -rf ShortsRemote/* .
+          python3 patch_mouse_wheel.py
+      - name: Build APK
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
+          unzip -q gradle-8.9-bin.zip
+          printf 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8\norg.gradle.workers.max=2\norg.gradle.parallel=false\n' > gradle.properties
+          ./gradle-8.9/bin/gradle --no-daemon --max-workers=2 assembleDebug
+          mkdir -p artifacts
+          find app/build/outputs/apk -type f -name '*.apk' -exec cp {} artifacts/ \;
+          test -n "$(find artifacts -type f -name '*.apk' -print -quit)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShortsRemote-pointer-fix-APK
+          path: artifacts/*.apk
+          if-no-files-found: error
