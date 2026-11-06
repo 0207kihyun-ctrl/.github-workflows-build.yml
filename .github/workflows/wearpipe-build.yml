@@ -27,7 +27,9 @@ jobs:
           path = Path("app/src/wearMain/kotlin/net/wearpipe/app/data/NewPipeStreamingRepository.kt")
           source = path.read_text()
           old = "items = result.first.filterIsInstance<StreamInfoItem>().map { item ->"
-          new = "items = result.first.filterIsInstance<StreamInfoItem>()\\n                        .filterNot { item -> item.isShortFormContent }\\n                        .map { item ->"
+          new = """items = result.first.filterIsInstance<StreamInfoItem>()
+                          .filterNot { it.isShortFormContent }
+                          .map { item ->"""
           if old not in source:
               raise SystemExit("Could not locate WearPipe search mapping; refusing to build without Shorts filter")
           path.write_text(source.replace(old, new, 1))
