@@ -1,0 +1,51 @@
+name: Build WearPipe APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/wearpipe-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout WearPipe source
+        uses: actions/checkout@v4
+        with:
+          repository: andyching168/WearPipe
+          ref: dev
+          path: WearPipe
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 36 SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Wear OS APK
+        working-directory: WearPipe
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: WearPipe-Watch5-debug
+          path: WearPipe/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
