@@ -69,7 +69,7 @@ jobs:
                               change.consume()
                               if (wheelMode) {
                                   // Keep wheel input small and steady.
-                                  wheelRemainder += -dragAmount.y * 0.12f
+                                  wheelRemainder += -dragAmount.y * 0.35f
                                   val steps = wheelRemainder.toInt()
                                   if (steps != 0) {
                                       hidManager.sendMouseWheel(steps)
@@ -99,10 +99,10 @@ jobs:
                       Spacer(Modifier.height(12.dp))
                       Text(directionText, fontSize = 11.sp, color = AccentBlue)
                       Spacer(Modifier.height(8.dp))
-                      Text(if (wheelMode) "위아래로 쓸어 작은 단위로 스크롤" else "손가락을 움직여 커서를 화면 안쪽으로 이동", fontSize = 9.sp, color = TextMuted)
+                      Text(if (wheelMode) "위아래로 쓸어 쇼츠 넘기기 (마우스 휠)" else "손가락을 움직여 커서 이동", fontSize = 9.sp, color = TextMuted)
                       Spacer(Modifier.height(10.dp))
                       Text(
-                          text = if (wheelMode) "터치패드 모드로 전환" else "휠 모드로 전환",
+                          text = if (wheelMode) "커서 이동 모드로 전환" else "쇼츠 스크롤 모드로 전환",
                           fontSize = 10.sp,
                           color = AccentBlue,
                           modifier = Modifier.clickable { wheelMode = !wheelMode }
